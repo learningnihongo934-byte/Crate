@@ -1,10 +1,14 @@
 // Crate: router, navigation, bottom bar, keyboard shortcuts.
-import { h, toast, dur, openInSpotify } from './util.js';
+import { h, toast, dur, openInSpotify, setPlayer } from './util.js';
 import { state, load } from './data.js';
 import * as sp from './spotify.js';
-import { np, startPolling, progressNow } from './nowplaying.js';
+import { np, startPolling, progressNow, isNative, playUri, cmd, canSee } from './nowplaying.js';
 import { loadQueue, queue, playNext } from './queue.js';
 import { artEl } from './art.js';
+import { DMG } from './ui.js';
+import { transport } from './controls.js';
+
+if (isNative) setPlayer(playUri);
 
 const ROUTES = {
   '': () => import('./views/overview.js'),
@@ -21,11 +25,12 @@ const ROUTES = {
   settings: () => import('./views/settings.js'),
 };
 
-const NAV = [
-  ['Listen', [['now', 'Now playing', true], ['queue', 'Up next'], ['rooms', 'Rooms']]],
-  ['Stats', [['', 'Overview'], ['top', 'Top lists'], ['clock', 'Listening clock'], ['obsessions', 'Obsessions'], ['genres', 'Genres', true], ['cards', 'Share cards']]],
-  ['Library', [['playlists', 'Playlist tools', true], ['smart', 'Smart playlists', true]]],
-  ['Crate', [['settings', 'Data & Spotify']]],
+// [route, label, show?]
+const NAV = () => [
+  ['Listen', [['now', 'Now playing', canSee()], ['queue', 'Up next'], ['rooms', 'Rooms']]],
+  ['Stats', [['', 'Overview'], ['top', 'Top lists'], ['clock', 'Listening clock'], ['obsessions', 'Obsessions'], ['genres', 'Genres', sp.connected()], ['cards', 'Share cards']]],
+  ['Library', [['playlists', 'Playlist tools', sp.connected()], ['smart', 'Smart playlists', sp.connected()]]],
+  ['Crate', [['settings', 'Settings']]],
 ];
 
 const view = document.getElementById('view');
@@ -39,16 +44,20 @@ function parse() {
 
 function renderNav() {
   const { name } = parse();
-  const on = sp.connected();
   let i = 0;
-  document.getElementById('nav').replaceChildren(...NAV.map(([label, links]) => h('div.nav-group', {},
-    h('div.nav-label', {}, label),
-    links.map(([k, text, needsApi]) => h('a.nav-link', { href: '#/' + k, class: name === k ? 'on' : '' },
-      h('span.n', {}, String(++i).padStart(2, '0')), text, needsApi && !on ? h('span.lock', { title: 'Needs Spotify login' }, 'API') : null)))));
+  document.getElementById('nav').replaceChildren(...NAV().map(([label, links]) => {
+    const shown = links.filter((l) => l[2] !== false);
+    if (!shown.length) return '';
+    return h('div.nav-group', {}, h('div.nav-label', {}, label),
+      shown.map(([k, text]) => h('a.nav-link', { href: '#/' + k, class: name === k ? 'on' : '' }, h('span.n', {}, String(++i).padStart(2, '0')), text)));
+  }));
+  const on = isNative ? np.running : sp.connected();
   const me = JSON.parse(localStorage.getItem('crate.me') || 'null');
   document.getElementById('railFoot').replaceChildren(
-    h('div.who', {}, h('span.dot', { class: on ? 'on' : '' }), on ? (me?.name || 'Spotify connected') : 'Spotify not connected'),
-    h('div', {}, `${state.plays.length.toLocaleString()} plays stored`));
+    h('div.who', {}, h('span.dot', { class: on ? 'on' : '' }),
+      isNative ? (np.running ? 'Connected to Spotify' : 'Spotify is closed') : sp.connected() ? (me?.name || 'Spotify connected') : 'Web version'),
+    h('div', {}, `${state.plays.length.toLocaleString()} plays logged`),
+    !isNative ? h('a', { href: DMG, style: { display: 'inline-block', marginTop: '8px' } }, 'Get the Mac app') : null);
 }
 
 async function route() {
@@ -72,42 +81,61 @@ async function route() {
 
 // ---------- bottom bar ----------
 const bar = document.getElementById('bar');
+let barKey = '';
 function renderBar() {
   const q = queue();
-  const nextBtn = h('button.btn.small', { onclick: () => playNext(), disabled: !q.length, title: 'Open the next song from Up Next (N)' }, 'Next ›');
   const nextTxt = q.length ? h('a.next', { href: '#/queue' }, `Up next: ${q[0].name} · ${q.length} queued`) : h('a.next', { href: '#/queue' }, 'Up Next is empty');
   if (np.item) {
     const pct = np.item.duration ? (100 * progressNow()) / np.item.duration : 0;
-    bar.replaceChildren(
-      h('div.prog', {}, h('i', { style: { width: pct + '%' } })),
+    const key = [np.item.id, np.playing, q.length, q[0]?.key].join('|');
+    if (key === barKey && bar.querySelector('.prog i')) {
+      bar.querySelector('.prog i').style.width = pct + '%';
+      bar.querySelector('.bar-time').textContent = `${dur(progressNow())} / ${dur(np.item.duration)}`;
+      return;
+    }
+    barKey = key;
+    const prog = h('div.prog', {
+      style: isNative ? { cursor: 'pointer', height: '6px', top: '-4px' } : {},
+      onclick: isNative ? (e) => { const r = e.currentTarget.getBoundingClientRect(); cmd('seek', ((e.clientX - r.left) / r.width) * np.item.duration / 1000); } : null,
+    }, h('i', { style: { width: pct + '%' } }));
+    bar.replaceChildren(prog,
+      isNative ? transport() : null,
       artEl({ id: np.item.id, art: np.item.art, name: np.item.name, artist: np.item.artist }),
-      h('a.tt', { href: '#/now', style: { textDecoration: 'none' } }, h('div.t1', {}, np.item.name), h('div.t2', {}, `${np.playing ? 'Playing' : 'Paused'} · ${np.item.artist} · ${dur(progressNow())} / ${dur(np.item.duration)}`)),
-      nextTxt, nextBtn);
+      h('a.tt', { href: '#/now', style: { textDecoration: 'none' } }, h('div.t1', {}, np.item.name),
+        h('div.t2', {}, `${np.item.artist} · `, h('span.bar-time', {}, `${dur(progressNow())} / ${dur(np.item.duration)}`))),
+      nextTxt, isNative ? null : h('button.btn.small', { onclick: () => playNext(), disabled: !q.length }, 'Next ›'));
     return;
   }
+  barKey = '';
   const last = state.plays.at(-1);
   bar.replaceChildren(
+    isNative && np.running ? transport() : null,
     last ? artEl({ id: last.u, name: last.n, artist: last.a }) : h('div.art'),
     h('div.tt', {}, h('div.t1', {}, last ? last.n : 'Crate'),
-      h('div.t2', {}, last ? `Last played · ${last.a}` : sp.connected() ? 'Nothing playing in Spotify' : 'Import your history or connect Spotify to start')),
-    last ? h('button.btn.ghost.small', { onclick: () => openInSpotify({ id: last.u, name: last.n, artist: last.a }) }, 'Open') : null,
-    nextTxt, nextBtn);
+      h('div.t2', {}, isNative ? (np.running ? 'Nothing playing. Press play.' : 'Open Spotify to start') : last ? `Last played · ${last.a}` : 'Get the Mac app to control Spotify')),
+    isNative && !np.running ? h('button.btn.small', { onclick: () => cmd('activate') }, 'Open Spotify') : last ? h('button.btn.ghost.small', { onclick: () => openInSpotify({ id: last.u, name: last.n, artist: last.a }) }, isNative ? 'Play' : 'Open') : null,
+    nextTxt, isNative ? null : h('button.btn.small', { onclick: () => playNext(), disabled: !q.length }, 'Next ›'));
 }
 
-// When the Spotify track changes and Crate's queue has songs, nudge to the next one.
+// Web only: nudge to the next queued song when Spotify changes track (the Mac app advances by itself).
 window.addEventListener('crate:trackchange', (e) => {
-  if (!queue().length || !e.detail.prev) return;
+  if (isNative || !queue().length || !e.detail.prev) return;
   if (localStorage.getItem('crate.nudge') === 'off') return;
   toast(`Song changed. Press N to open "${queue()[0].name}" from Up Next.`, 5000);
 });
 
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('input, textarea, select, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return;
-  const map = { n: () => playNext(), q: () => (location.hash = '#/queue'), p: () => (location.hash = '#/now'), o: () => (location.hash = '#/'), '/': () => document.querySelector('main input[type=search]')?.focus() };
+  const map = {
+    n: () => playNext(), q: () => (location.hash = '#/queue'), p: () => (location.hash = '#/now'), o: () => (location.hash = '#/'),
+    '/': () => document.querySelector('main input[type=search]')?.focus(),
+  };
+  if (isNative) Object.assign(map, { ' ': () => cmd('playpause'), j: () => cmd('previous'), l: () => (queue().some((q) => q.id) ? playNext() : cmd('next')) });
   const f = map[e.key.toLowerCase()];
   if (f) { e.preventDefault(); f(); }
 });
 
+let wasRunning = null;
 async function boot() {
   const cb = await sp.handleCallback().catch((e) => ({ ok: false, error: e.message, back: '#/settings' }));
   await Promise.all([load(), loadQueue()]);
@@ -117,11 +145,11 @@ async function boot() {
   }
   window.addEventListener('hashchange', route);
   window.addEventListener('crate:data', () => { renderNav(); renderBar(); });
-  window.addEventListener('crate:np', renderBar);
-  window.addEventListener('crate:queue', renderBar);
+  window.addEventListener('crate:np', () => { renderBar(); if (np.running !== wasRunning) { wasRunning = np.running; renderNav(); } });
+  window.addEventListener('crate:queue', () => { barKey = ''; renderBar(); });
   setInterval(() => np.playing && renderBar(), 1000);
   route();
   renderBar();
-  if (sp.connected()) startPolling();
+  if (canSee()) startPolling();
 }
 boot();

@@ -1,5 +1,5 @@
 // Shared view pieces: page header, range picker, ranked lists, charts.
-import { h, s, num, mins, date, openInSpotify, hrs } from './util.js';
+import { h, s, num, mins, date, openInSpotify, hrs, playLabel, hasPlayer } from './util.js';
 import { state, PRESETS, setRange, years, rangeLabel } from './data.js';
 import { artEl } from './art.js';
 import { enqueue } from './queue.js';
@@ -39,7 +39,7 @@ export function sectionTitle(n, text, aside) {
 
 export function trackActs(item) {
   return h('div.acts', {},
-    h('button.btn.ghost.small', { title: 'Open in Spotify', onclick: () => openInSpotify(item) }, 'Open'),
+    h('button.btn.ghost.small', { title: hasPlayer() ? 'Play now in Spotify' : 'Open in Spotify', onclick: () => openInSpotify(item) }, playLabel()),
     h('button.btn.ghost.small', { title: 'Add to Up Next', onclick: () => enqueue(item) }, '+ Queue'));
 }
 
@@ -90,12 +90,21 @@ export function lockbox(title, text, actions) {
     actions || h('a.btn.solid', { href: '#/settings' }, 'Set up Spotify login'));
 }
 
+export const DMG = 'https://github.com/learningnihongo934-byte/Crate/releases/latest/download/Crate.dmg';
+
 export function emptyHistory() {
+  if (hasPlayer()) {
+    return h('div.lockbox', {},
+      h('span.pill', {}, 'Listening…'),
+      h('b', {}, 'Just play music in Spotify'),
+      h('p', {}, 'Crate logs every song you play from now on, and your stats fill in by themselves. Want years of history right away? Import your Spotify data in Settings (optional).'),
+      h('div.row', {}, h('a.btn.solid', { href: '#/now' }, 'Go to Now playing'), h('a.btn', { href: '#/settings' }, 'Try with sample data')));
+  }
   return h('div.lockbox', {},
     h('span.pill', {}, 'No history yet'),
-    h('b', {}, 'Import your Spotify history to fill this in'),
-    h('p', {}, 'Request your Extended streaming history from Spotify (Account → Privacy settings), then drop the zip into Crate. Until it arrives you can explore with sample data.'),
-    h('a.btn.solid', { href: '#/settings' }, 'Import or try sample data'));
+    h('b', {}, 'Get the Crate app for Mac'),
+    h('p', {}, 'The Mac app works with the Spotify app on your computer: real play, pause, skip and queue control, and it logs everything you play to build your stats. No login, works on free accounts.'),
+    h('div.row', {}, h('a.btn.solid', { href: DMG }, 'Download for Mac'), h('a.btn', { href: '#/settings' }, 'Try with sample data')));
 }
 
 export const rangeText = () => rangeLabel();

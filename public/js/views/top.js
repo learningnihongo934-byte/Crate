@@ -13,14 +13,14 @@ export function render(page) {
   const body = h('div');
 
   const draw = () => {
-    const tabs = h('div.seg', {}, [['track', 'Songs'], ['artist', 'Artists'], ['album', 'Albums'], ['log', 'Play log'], ['spotify', 'Spotify says']]
+    const tabs = h('div.seg', {}, [['track', 'Songs'], ['artist', 'Artists'], ['album', 'Albums'], ['log', 'Play log'], ...(sp.connected() ? [['spotify', 'Spotify says']] : [])]
       .map(([k, l]) => h('button', { class: ui.by === k ? 'on' : '', onclick: () => { ui.by = k; ui.n = 100; save(); draw(); } }, l)));
     const metric = h('div.seg', {}, [['ms', 'Minutes'], ['plays', 'Plays']].map(([k, l]) =>
       h('button', { class: ui.metric === k ? 'on' : '', onclick: () => { ui.metric = k; save(); draw(); } }, l)));
     const search = h('input', { type: 'search', placeholder: 'Filter  ( / )', value: ui.q, style: { width: '220px' },
       oninput: debounce((e) => { ui.q = e.target.value; save(); drawBody(); }, 150) });
     page.replaceChildren(
-      head(`Top lists · ${rangeLabel()}`, 'Top lists', 'Ranked by real minutes listened, not just play counts. "Spotify says" shows Spotify\'s own ranking for comparison.', rangePicker()),
+      head(`Top lists · ${rangeLabel()}`, 'Top lists', 'Ranked by real minutes listened, not just play counts.', rangePicker()),
       h('div.row', { style: { marginBottom: '20px' } }, tabs, ui.by !== 'log' && ui.by !== 'spotify' ? metric : null, h('div.spacer'), ui.by !== 'spotify' ? search : null),
       body);
     drawBody();

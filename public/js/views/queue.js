@@ -2,6 +2,7 @@ import { h, toast, ago } from '../util.js';
 import { inRange, rangeLabel } from '../data.js';
 import { top } from '../stats.js';
 import { head, sectionTitle } from '../ui.js';
+import { isNative } from '../nowplaying.js';
 import { artEl } from '../art.js';
 import { picker } from '../picker.js';
 import { queue, played, enqueue, enqueueMany, removeAt, move, moveTo, clearQueue, shuffleQueue, playNext, playItem } from '../queue.js';
@@ -30,7 +31,7 @@ export function render(page) {
       : h('div.empty-line', {}, 'Up Next is empty. Add songs below, or use "+ Queue" on any song in Crate.'));
 
     page.replaceChildren(
-      head('Listen', 'Up next', 'Crate keeps its own queue, because free accounts can\'t edit Spotify\'s. Press N (or Next ›) to open the next song in Spotify. Drag to reorder.',
+      head('Listen', 'Up next', isNative ? 'Crate plays these in order, starting each one as the current song ends. Drag to reorder.' : 'Crate keeps its own queue. Press N (or Next ›) to open the next song in Spotify. Drag to reorder.',
         h('div.row', {},
           h('button.btn.solid', { onclick: () => playNext(), disabled: !q.length }, 'Play next  N'),
           h('button.btn', { onclick: shuffleQueue, disabled: q.length < 2 }, 'Shuffle'),
@@ -43,7 +44,7 @@ export function render(page) {
           h('div.row', { style: { marginTop: '14px' } },
             h('button.btn.small', { onclick: () => enqueueMany(top(inRange(), 'track', 'plays', 20).map((e) => ({ id: e.id, name: e.name, artist: e.artist }))) }, `Add my top 20 (${rangeLabel()})`),
             h('button.btn.small', { onclick: addForgotten }, 'Add 15 forgotten favorites')),
-          h('label.check', { style: { marginTop: '18px' } },
+          isNative ? null : h('label.check', { style: { marginTop: '18px' } },
             h('input', { type: 'checkbox', checked: localStorage.getItem('crate.nudge') !== 'off', onchange: (e) => localStorage.setItem('crate.nudge', e.target.checked ? 'on' : 'off') }),
             'Remind me when the Spotify song changes'),
           sectionTitle('03', 'Played from Up Next'),

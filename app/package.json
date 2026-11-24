@@ -1,0 +1,32 @@
+{
+  "name": "crate",
+  "productName": "Crate",
+  "version": "1.0.0",
+  "description": "Crate for Mac: controls your Spotify app, logs every play, and builds your stats with no login.",
+  "author": "Virat Reddy Kaukuntla",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac dmg --arm64"
+  },
+  "devDependencies": {
+    "electron": "^45.3.4",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "tech.rennko.crate",
+    "productName": "Crate",
+    "directories": { "output": "dist.noindex", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "offline.html", "build/trayTemplate.png", "build/trayTemplate@2x.png"],
+    "mac": {
+      "category": "public.app-category.music",
+      "icon": "build/icon.png",
+      "identity": null,
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Crate controls the Spotify app (play, pause, skip, queue) and reads what's playing to build your listening stats."
+      }
+    },
+    "dmg": { "artifactName": "Crate.dmg" }
+  }
+}

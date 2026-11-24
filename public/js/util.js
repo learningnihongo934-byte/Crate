@@ -86,8 +86,15 @@ export function download(name, blob) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
 }
 
-// Open a track in the user's Spotify (app by default, web player as fallback setting).
+// In the Mac app this is set to "play this track in Spotify now".
+let player = null;
+export const setPlayer = (fn) => { player = fn; };
+export const hasPlayer = () => !!player;
+export const playLabel = () => (player ? 'Play' : 'Open');
+
+// Play a track: directly in the Mac app, otherwise open it in Spotify (app by default, or web player).
 export function openInSpotify(item) {
+  if (player && item.id) { player(item.id); return; }
   const mode = localStorage.getItem('crate.openIn') || 'app';
   let href;
   if (item.id) href = mode === 'web' ? `https://open.spotify.com/track/${item.id}` : `spotify:track:${item.id}`;

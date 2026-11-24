@@ -2,7 +2,20 @@
 
 Spotify, but with the parts Spotify leaves out. Live at **https://crate.rennko.tech**.
 
-Crate runs in the browser and keeps your data there. It works in two layers:
+## Crate for Mac (the easy way)
+Download **Crate.dmg** from the [latest release](https://github.com/learningnihongo934-byte/Crate/releases/latest) and drag it to Applications. On first launch, right-click → Open, because the app isn't notarized. Allow Crate to control Spotify when macOS asks.
+
+The app works with the **Spotify app on your Mac** through its AppleScript interface, so it works on free accounts with no login or setup:
+- Play, pause, skip, seek, volume, shuffle and repeat, from the window, the bottom bar, the menu bar icon or the keyboard (Space / J / L)
+- A real **Up Next** queue: Crate starts each queued song as the current one ends
+- Logs every song you play with real listening time, so your stats build themselves
+- A sleep timer that fades out, and an A–B loop for practising a section
+- Rooms where a **Drop** starts the song in everyone's Spotify at the same moment
+
+The app is a thin Electron shell (`app/`) that loads crate.rennko.tech and exposes a fixed set of Spotify commands (`app/preload.js`).
+
+## The web version
+Crate also runs in the browser and keeps your data there. It works in two layers:
 
 **Without a Spotify login** (works for any account, free included)
 - **Stats anytime**: import your Spotify data export (the zip, read in the browser) for lifetime stats over any date range: real minutes, top songs/artists/albums, play log, monthly chart.
@@ -33,6 +46,7 @@ Then paste the Client ID into **Data & Spotify**. There is no client secret, bec
 ./build.sh check    # + syntax check
 ./build.sh dev      # local Worker at http://127.0.0.1:8850
 ./build.sh deploy   # publish to crate.rennko.tech
+./build.sh app      # build the Mac app + dmg, install to /Applications
 ```
 
 ## Layout

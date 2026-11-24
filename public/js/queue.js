@@ -43,6 +43,16 @@ export function shuffleQueue() {
   for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
   changed();
 }
+// Next playable song (has a Spotify id), for automatic advancing in the Mac app.
+export function takeNext() {
+  const i = q.findIndex((x) => x.id);
+  if (i < 0) return null;
+  const [item] = q.splice(i, 1);
+  history.unshift(item);
+  changed();
+  return item;
+}
+
 // Pop the next song and open it in Spotify. Must run inside a click/keypress.
 export function playNext() {
   const item = q.shift();

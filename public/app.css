@@ -306,3 +306,26 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .kv { grid-template-columns: repeat(2, 1fr); }
   .bar .next { display: none; }
 }
+
+/* ---------- Mac app: transport + title bar ---------- */
+.transport { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.tbtn { width: 34px; height: 34px; display: grid; place-items: center; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0; }
+.tbtn:hover { color: var(--text); }
+.tbtn.main { color: var(--ink); background: var(--text); border-radius: 50%; }
+.tbtn.main:hover { background: #fff; color: var(--ink); }
+.transport.big { gap: 10px; margin-top: 18px; }
+.transport.big .tbtn { width: 48px; height: 48px; }
+.transport.big .tbtn.main { width: 60px; height: 60px; }
+.vol { display: inline-flex; align-items: center; gap: 8px; padding: 0 6px; }
+.vol input { width: 110px; accent-color: var(--text); }
+.prog .loopmark { position: absolute; top: -3px; bottom: -3px; border-left: 2px solid var(--text); border-right: 2px solid var(--text); background: rgba(235, 232, 226, .12); display: none; }
+html.native-mac .rail { padding-top: 46px; -webkit-app-region: drag; }
+html.native-mac .rail a, html.native-mac .rail button { -webkit-app-region: no-drag; }
+html.native-mac body::before { content: ''; position: fixed; top: 0; left: var(--rail); right: 0; height: 26px; -webkit-app-region: drag; z-index: 40; }
+@media (max-width: 900px) {
+  html.native-mac .rail { padding-top: 0; padding-left: 76px; }
+  html.native-mac body::before { left: 0; }
+}
+details.adv { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; }
+details.adv summary { cursor: pointer; color: var(--muted); font-size: 13.5px; font-weight: 600; margin-bottom: 10px; }
+details.adv summary:hover { color: var(--text); }

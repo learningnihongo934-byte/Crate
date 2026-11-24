@@ -2,7 +2,7 @@ import { h, toast, openInSpotify } from '../util.js';
 import { head, sectionTitle } from '../ui.js';
 import { artEl } from '../art.js';
 import { picker } from '../picker.js';
-import { np, startPolling } from '../nowplaying.js';
+import { np, startPolling, isNative, canSee } from '../nowplaying.js';
 import * as sp from '../spotify.js';
 
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -26,7 +26,7 @@ function lobby(page) {
       h('div.panel', {}, h('h3', {}, 'Join a room'), h('p', {}, 'Enter the code someone sent you.'),
         h('form.row', { onsubmit: (e) => { e.preventDefault(); const c = join.value.trim().toUpperCase(); if (c.length >= 4) location.hash = '#/rooms/' + c; } },
           join, h('button.btn', {}, 'Join'))),
-      h('div.panel', {}, h('h3', {}, 'How playing works'), h('p', {}, 'Spotify doesn\'t let free accounts be controlled remotely, so each person taps Play and the song opens in their own Spotify. Drops add a 4-second countdown so everyone starts at the same moment.'))));
+      h('div.panel', {}, h('h3', {}, 'How playing works'), h('p', {}, 'With the Crate Mac app, a Drop starts the song in everyone\'s Spotify automatically after a 4-second countdown. On the web, each person taps Play when the countdown ends.'))));
 }
 
 function askName(page, code) {
@@ -96,7 +96,7 @@ function room(page, code) {
           m.np && m.id !== me ? h('div.row', { style: { gap: '4px', marginTop: '4px' } },
             h('button.btn.small', { onclick: () => openInSpotify(m.np) }, 'Jump in'),
             h('button.btn.ghost.small', { onclick: () => send({ type: 'add', track: m.np }) }, '+ Queue')) : null))));
-    if (!sp.connected()) {
+    if (!canSee()) {
       membersEl.append(h('div', { style: { marginTop: '18px' } },
         h('div.eyebrow', {}, 'What are you playing?'),
         picker((t) => { manualNp = t; shareNp(true); }, 'Search or paste a link'),
@@ -138,7 +138,7 @@ function room(page, code) {
           h('form', { onsubmit: (e) => { e.preventDefault(); const t = chatIn.value.trim(); if (t) send({ type: 'chat', text: t }); chatIn.value = ''; } }, chatIn)))));
   drawAll();
   connect();
-  if (sp.connected()) startPolling();
+  if (canSee()) startPolling();
   const onNp = () => shareNp(false);
   window.addEventListener('crate:np', onNp);
   return () => {
@@ -163,6 +163,7 @@ function dropOverlay(m) {
     const left = Math.ceil((m.at - Date.now()) / 1000);
     if (!ov.isConnected) return;
     if (left > 0) { count.textContent = left; setTimeout(tick, 100); }
+    else if (isNative && m.track.id) { openInSpotify(m.track); ov.remove(); toast(`Playing ${m.track.name}`); }
     else { count.textContent = 'Go'; btn.focus(); }
   };
   tick();

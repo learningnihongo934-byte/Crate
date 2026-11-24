@@ -2,18 +2,22 @@ import { h, num, date, toast, download } from '../util.js';
 import { state, addPlays, removeSource, hasSample, syncRecent } from '../data.js';
 import { importFiles, rowsFrom } from '../importer.js';
 import { makeSample } from '../sample.js';
-import { head, sectionTitle } from '../ui.js';
+import { head, sectionTitle, DMG } from '../ui.js';
+import { isNative, np, cmd } from '../nowplaying.js';
 import * as sp from '../spotify.js';
 
 export function render(page) {
   const draw = () => {
-    const bySrc = { x: 0, a: 0, d: 0 };
+    const bySrc = { x: 0, a: 0, d: 0, n: 0 };
     for (const p of state.plays) bySrc[p.src] = (bySrc[p.src] || 0) + 1;
     page.replaceChildren(
-      head('Crate', 'Data & Spotify', 'Everything Crate knows lives in this browser (IndexedDB). Nothing is uploaded unless you turn on cloud smart playlists.'),
+      head('Crate', 'Settings', 'Your history is stored on this computer only.'),
       h('div.cols', {},
-        h('section.section.c7', {}, sectionTitle('01', 'Listening history'), importPanel(bySrc), dataPanel(bySrc)),
-        h('section.section.c5', {}, sectionTitle('02', 'Spotify login'), spotifyPanel(), sectionTitle('03', 'Preferences'), prefsPanel())));
+        h('section.section.c7', {}, sectionTitle('01', 'Your history'), dataPanel(bySrc), importPanel(bySrc)),
+        h('section.section.c5', {}, sectionTitle('02', isNative ? 'Spotify app' : 'Mac app'), appPanel(), sectionTitle('03', 'Preferences'), prefsPanel(),
+          h('details.adv', { open: sp.connected() }, h('summary', {}, 'Advanced: Spotify developer login (optional)'),
+            h('p.muted', { style: { fontSize: '13.5px' } }, 'Only needed for playlist editing, smart playlists and genres. It requires a Spotify developer app owned by a Premium account.'),
+            spotifyPanel()))));
   };
 
   const importPanel = (bySrc) => {
@@ -38,7 +42,8 @@ export function render(page) {
       ondrop: (e) => { e.preventDefault(); zone.classList.remove('over'); go(e.dataTransfer.files); },
     }, h('b', {}, 'Drop your Spotify data here'), 'my_spotify_data.zip, or the Streaming_History JSON files inside it');
     return h('div.panel', {},
-      h('h3', {}, 'Import from Spotify'),
+      h('h3', {}, 'Optional: bring in past years'),
+      h('p', {}, isNative ? 'Crate already logs everything you play. If you also want your history from before you installed it, Spotify can send it to you.' : 'Spotify can send you every play since you joined.'),
       h('ol.steps', {},
         h('li', {}, 'Open ', h('a', { href: 'https://www.spotify.com/account/privacy/', target: '_blank', rel: 'noopener' }, 'spotify.com → Account → Privacy settings'), '.'),
         h('li', {}, 'Tick ', h('b', {}, 'Extended streaming history'), ' (every play since you joined) and request it. "Account data" works too, but only covers the last year.'),
@@ -50,7 +55,7 @@ export function render(page) {
   const dataPanel = (bySrc) => h('div.panel', {},
     h('h3', {}, 'What\'s stored'),
     state.plays.length
-      ? h('p', {}, `${num(state.plays.length)} plays from ${date(state.plays[0].t)} to ${date(state.plays.at(-1).t)}: ${num(bySrc.x)} from exports, ${num(bySrc.a)} logged live from Spotify${bySrc.d ? `, ${num(bySrc.d)} sample` : ''}.`)
+      ? h('p', {}, `${num(state.plays.length)} plays from ${date(state.plays[0].t)} to ${date(state.plays.at(-1).t)}: ${num(bySrc.n || 0)} logged by the Mac app, ${num(bySrc.x)} from exports, ${num(bySrc.a)} from the Spotify API${bySrc.d ? `, ${num(bySrc.d)} sample` : ''}.`)
       : h('p', {}, 'Nothing yet.'),
     h('div.row', {},
       hasSample()
@@ -101,14 +106,25 @@ export function render(page) {
             sp.setClientId(v);
             try { await sp.login(); } catch (e) { toast(e.message); }
           } }, 'Save and log in with Spotify'))),
-      h('p.note', {}, 'Without a login, Crate still does all history stats, share cards, Up Next and rooms.'));
+      null);
   };
 
+  const appPanel = () => isNative
+    ? h('div.panel', {},
+        h('h3', {}, np.running ? 'Connected to the Spotify app' : 'Spotify is closed'),
+        h('p', {}, 'Crate controls the Spotify app on this Mac and logs each song you play (5 seconds or more). If macOS asks whether Crate may control Spotify, click OK.'),
+        !np.running ? h('button.btn.solid', { onclick: () => cmd('activate') }, 'Open Spotify') : null)
+    : h('div.panel', {},
+        h('h3', {}, 'Get Crate for Mac'),
+        h('p', {}, 'The app works with the Spotify app on your computer: play, pause, skip, a real queue, a sleep timer and loops. It logs every song for your stats. No login, works on free accounts.'),
+        h('a.btn.solid', { href: DMG }, 'Download for Mac (Apple silicon)'),
+        h('p.note', {}, 'First launch: right-click Crate in Applications → Open, because the app is not notarized by Apple.'));
+
   const prefsPanel = () => h('div.panel', {},
-    h('label.field', {}, h('span', {}, 'Open songs in'),
+    isNative ? null : h('label.field', {}, h('span', {}, 'Open songs in'),
       h('div.seg', {}, [['app', 'Spotify app'], ['web', 'Web player']].map(([k, l]) =>
         h('button', { class: (localStorage.getItem('crate.openIn') || 'app') === k ? 'on' : '', onclick: () => { localStorage.setItem('crate.openIn', k); draw(); } }, l)))),
-    h('p.note', {}, 'Keyboard: N next from Up Next · Q queue · P now playing · O overview · / search'));
+    h('p.note', {}, isNative ? 'Keyboard: Space play/pause · J previous · L next · Q queue · P now playing · O overview · / search' : 'Keyboard: N next from Up Next · Q queue · P now playing · O overview · / search'));
 
   draw();
   window.addEventListener('crate:data', draw);
