@@ -80,7 +80,17 @@ async function advanceQueue() {
 async function nativeTick() {
   let s;
   try { s = await N.state(); } catch (e) { np.error = e.message; return; }
-  if (!s) return;
+  applyState(s);
+}
+
+let applying = false;
+function applyState(s) {
+  if (!s || applying) return;
+  applying = true;
+  try { applyInner(s); } finally { applying = false; }
+}
+
+function applyInner(s) {
   np.running = !!s.running;
   np.error = s.error || '';
   const playing = s.state === 'playing';
@@ -159,10 +169,13 @@ export function setSleep(minutes) {
 }
 export function setLoop(loop) { np.loop = loop; restart(); emitNp(); }
 
+const pushed = isNative && typeof N.onState === 'function';
 function restart() {
   clearInterval(timer);
+  if (pushed) { N.setInterval(np.loop ? 300 : 1000); timer = 1; return; }
   timer = setInterval(isNative ? nativeTick : apiTick, isNative ? (np.loop ? 300 : 1000) : 5000);
 }
+if (pushed) N.onState(applyState);
 
 export function startPolling() {
   if (timer) return;

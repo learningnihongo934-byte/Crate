@@ -55,7 +55,11 @@ export function render(page) {
     if (shownKey === key) return tickProg();
     const sameTrack = shownKey?.split('|')[0] === np.item.id;
     shownKey = key;
-    if (sameTrack && page.querySelector('.np-controls')) { page.querySelector('.np-controls').replaceWith(controls()); return tickProg(); }
+    if (sameTrack && page.querySelector('.np-controls')) {
+      page.querySelector('.eyebrow').textContent = np.playing ? 'Now playing' : 'Paused';
+      page.querySelector('.np-controls').replaceWith(controls());
+      return tickProg();
+    }
     const it = np.item;
     const hist = trackHistory(state.plays, { id: it.id, name: it.name, artist: it.artist.split(',')[0] });
     page.replaceChildren(

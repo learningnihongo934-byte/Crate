@@ -1,4 +1,10 @@
 // Small DOM + formatting helpers.
+
+// Let views pass `cond ? el : null` to append/replaceChildren without "null" text showing up.
+for (const m of ['append', 'prepend', 'replaceChildren']) {
+  const orig = Element.prototype[m];
+  Element.prototype[m] = function (...a) { return orig.apply(this, a.filter((x) => x != null && x !== false && x !== '')); };
+}
 export function h(tag, attrs = {}, ...kids) {
   const [name, ...classes] = tag.split('.');
   const el = document.createElement(name || 'div');

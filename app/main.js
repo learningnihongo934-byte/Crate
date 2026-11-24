@@ -5,6 +5,11 @@ const { execFile } = require('child_process');
 const path = require('path');
 
 const SITE = process.env.CRATE_URL || 'https://crate.rennko.tech';
+
+// Crate must keep polling Spotify and logging plays while its window is hidden or covered.
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 const ORIGIN = new URL(SITE).origin;
 let win = null, tray = null, quitting = false;
 
@@ -58,6 +63,17 @@ async function cmd(action, arg) {
   }
 }
 
+// Poll from the main process (Node timers are never throttled) and push state to the page.
+let pollMs = 1000, pollTimer = null, polling = false;
+async function poll() {
+  if (polling || !win || win.isDestroyed()) return;
+  polling = true;
+  try { const st = await state(); if (win && !win.isDestroyed()) win.webContents.send('spotify:push', st); }
+  finally { polling = false; }
+}
+function startPoll() { clearInterval(pollTimer); pollTimer = setInterval(poll, pollMs); }
+ipcMain.on('spotify:interval', (e, ms) => { if (fromSite(e)) { pollMs = Math.max(250, Math.min(5000, Number(ms) || 1000)); startPoll(); } });
+
 const fromSite = (e) => { try { return new URL(e.senderFrame.url).origin === ORIGIN; } catch { return false; } };
 ipcMain.handle('spotify:state', (e) => (fromSite(e) ? state() : null));
 ipcMain.handle('spotify:cmd', (e, a, v) => (fromSite(e) ? cmd(a, v) : null));
@@ -100,6 +116,7 @@ async function trayMenu() {
 
 app.whenReady().then(() => {
   createWindow();
+  startPoll();
   const img = nativeImage.createFromPath(path.join(__dirname, 'build', 'trayTemplate.png'));
   img.setTemplateImage(true);
   tray = new Tray(img);
